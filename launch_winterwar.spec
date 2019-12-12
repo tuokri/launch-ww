@@ -1,6 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
+from pathlib import Path
 
 block_cipher = None
+
+icon_path = Path('Steam_Icon.ico')
+icon = str(icon_path) if icon_path.exists() else None
 
 a = Analysis(['src\\launch_winterwar.py'],
              pathex=[],
@@ -28,7 +32,8 @@ exe = EXE(pyz,
           debug=False,
           bootloader_ignore_signals=False,
           strip=False,
-          upx=True,
+          upx=False,
           upx_exclude=[],
           runtime_tmpdir=None,
-          console=False)
+          console=False,
+          icon=icon)
