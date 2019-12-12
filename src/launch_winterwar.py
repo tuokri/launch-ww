@@ -49,8 +49,8 @@ LOGS_DIR = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Logs")
 SCRIPT_LOG_PATH = LOGS_DIR / Path("LaunchWinterWar.log")
 
 logbook.set_datetime_format("local")
-_sh = StreamHandler(sys.stdout, level="INFO")
-_rfh = RotatingFileHandler(SCRIPT_LOG_PATH, level="INFO", bubble=True)
+_rfh_bubble = False if hasattr(sys, "frozen") else True
+_rfh = RotatingFileHandler(SCRIPT_LOG_PATH, level="INFO", bubble=_rfh_bubble)
 _rfh.format_string = (
     "[{record.time}] {record.level_name}: {record.channel}: "
     "{record.func_name}(): {record.message}"
@@ -60,7 +60,11 @@ logger = Logger(__name__)
 logger.handlers.append(_rfh)
 
 # No console window in frozen mode.
-if not hasattr(sys, "frozen"):
+if hasattr(sys, "frozen"):
+    logger.info("not adding stdout logging handler in frozen mode")
+else:
+    _sh = StreamHandler(sys.stdout, level="INFO")
+    logger.info("adding logging handler: {h}", h=_sh)
     _sh.push_application()
     logger.handlers.append(_sh)
 
