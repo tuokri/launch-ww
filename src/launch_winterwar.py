@@ -4,16 +4,13 @@ workshop cache to avoid conflicts and run Rising Storm 2.
 """
 import argparse
 import ctypes.wintypes
-import errno
 import os
 import shutil
 import subprocess
 import sys
-import winreg
 from argparse import Namespace
 from pathlib import Path
 from typing import List
-from winreg import HKEY_LOCAL_MACHINE
 
 import logbook
 from logbook import Logger
