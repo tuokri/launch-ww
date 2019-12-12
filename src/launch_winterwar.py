@@ -30,8 +30,6 @@ AUDIO_DIR = Path("CookedPC\\WwiseAudio")
 # Windows constants.
 CSIDL_PERSONAL = 5  # My Documents.
 SHGFP_TYPE_CURRENT = 0  # Get current, not default value.
-STEAM_REG_32 = "SOFTWARE\\Valve\\Steam"
-STEAM_REG_64 = "SOFTWARE\\Wow6432Node\\Valve\\Steam"
 
 
 def user_documents_dir() -> Path:
@@ -86,36 +84,6 @@ def find_ww_cache_dirs() -> List[Path]:
     return list(set(cache_dirs))
 
 
-def find_steam_install_dir() -> Path:
-    """Read Steam installation directory from Windows registry."""
-    steam_reg_keys = [STEAM_REG_32, STEAM_REG_64]
-
-    for steam_reg_key in steam_reg_keys:
-        logger.info("trying to read key: {k}", k=steam_reg_key)
-        try:
-            with winreg.OpenKey(HKEY_LOCAL_MACHINE, steam_reg_key) as key:
-                try:
-                    return Path(winreg.QueryValueEx(key, "InstallPath")[0])
-                except OSError as ose:
-                    if ose.errno != errno.ENOENT:
-                        raise
-        except FileNotFoundError:
-            logger.info("key not found: {k}", k=steam_reg_key)
-
-    raise RuntimeError("Could not find Steam directory")
-
-
-def find_vngame_exe() -> Path:
-    steam_dir = find_steam_install_dir()
-    vngame_exe_path = steam_dir / VNGAME_EXE_PATH
-
-    logger.info("looking for '{exe}'", exe=vngame_exe_path)
-    if not vngame_exe_path.exists():
-        raise RuntimeError(f"Could not find '{VNGAME_EXE}'")
-
-    return vngame_exe_path
-
-
 def error_handler(function, path, exc_info):
     logger.error("function={f} path={p}",
                  f=function, p=path, exc_info=exc_info)
@@ -156,12 +124,9 @@ def main():
                 onerror=error_handler,
             )
 
-    vngame_exe = find_vngame_exe()
-    logger.info("found Rising Storm 2 executable: '{exe}'", exe=vngame_exe)
-
     if not args.dry_run:
         logger.info("launching Rising Storm 2")
-        subprocess.Popen(str(vngame_exe))
+        subprocess.run(["start", "steam://rungameid/418460"], shell=True)
 
 
 if __name__ == "__main__":
