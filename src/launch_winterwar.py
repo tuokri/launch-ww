@@ -17,6 +17,7 @@ from logbook import Logger
 from logbook import RotatingFileHandler
 from logbook import StreamHandler
 
+RS2_APP_ID = 418460
 VNGAME_EXE = "VNGame.exe"
 VNGAME_EXE_PATH = Path(
     "steamapps\\common\\Rising Storm 2\\Binaries\\Win64") / Path(VNGAME_EXE)
@@ -43,16 +44,17 @@ PUBLISHED_DIR = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Publishe
 LOGS_DIR = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Logs")
 SCRIPT_LOG_PATH = LOGS_DIR / Path("LaunchWinterWar.log")
 
-logbook.set_datetime_format("local")
-_rfh_bubble = False if hasattr(sys, "frozen") else True
-_rfh = RotatingFileHandler(SCRIPT_LOG_PATH, level="INFO", bubble=_rfh_bubble)
-_rfh.format_string = (
-    "[{record.time}] {record.level_name}: {record.channel}: "
-    "{record.func_name}(): {record.message}"
-)
-_rfh.push_application()
 logger = Logger(__name__)
-logger.handlers.append(_rfh)
+if SCRIPT_LOG_PATH.exists():
+    logbook.set_datetime_format("local")
+    _rfh_bubble = False if hasattr(sys, "frozen") else True
+    _rfh = RotatingFileHandler(SCRIPT_LOG_PATH, level="INFO", bubble=_rfh_bubble)
+    _rfh.format_string = (
+        "[{record.time}] {record.level_name}: {record.channel}: "
+        "{record.func_name}(): {record.message}"
+    )
+    _rfh.push_application()
+    logger.handlers.append(_rfh)
 
 # No console window in frozen mode.
 if hasattr(sys, "frozen"):
@@ -93,7 +95,22 @@ def parse_args() -> Namespace:
         action="store_true", default=False,
         help="run without deleting files or launching Rising Storm 2",
     )
-    return ap.parse_args()
+    ap.add_argument(
+        "--launch-options", nargs="*",
+        help=f"launch options passed to {VNGAME_EXE}",
+    )
+
+    args = ap.parse_args()
+    if args.launch_options:
+        lo = args.launch_options
+
+        # List of 1 string.
+        if len(lo) == 1:
+            lo = lo[0].split(" ")
+
+        args.launch_options = lo
+
+    return args
 
 
 def main():
@@ -121,9 +138,14 @@ def main():
                 onerror=error_handler,
             )
 
+    launch_options = args.launch_options
+    logger.info("launch options: {lo}", lo=launch_options)
+    command = ["start", f"steam://run/{RS2_APP_ID}//", *launch_options]
+    logger.info("launch command: {cmd}", cmd=command)
+
     if not args.dry_run:
         logger.info("launching Rising Storm 2")
-        subprocess.run(["start", "steam://rungameid/418460"], shell=True)
+        subprocess.run(command, shell=True)
 
 
 if __name__ == "__main__":
