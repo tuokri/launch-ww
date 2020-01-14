@@ -138,9 +138,12 @@ def main():
                 onerror=error_handler,
             )
 
-    launch_options = args.launch_options
-    logger.info("launch options: {lo}", lo=launch_options)
-    command = ["start", f"steam://run/{RS2_APP_ID}//", *launch_options]
+    lo = args.launch_options
+    if not lo:
+        lo = []
+
+    logger.info("launch options: {lo}", lo=lo)
+    command = ["start", f"steam://run/{RS2_APP_ID}//", *lo]
     logger.info("launch command: {cmd}", cmd=command)
 
     if not args.dry_run:
