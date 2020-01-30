@@ -29,6 +29,8 @@ AUDIO_DIR = Path("CookedPC\\WwiseAudio")
 CSIDL_PERSONAL = 5  # My Documents.
 SHGFP_TYPE_CURRENT = 0  # Get current, not default value.
 
+CMD_BAT_FILE = "LaunchWinterWarCommand.bat"
+
 
 def user_documents_dir() -> Path:
     """Return the user's Windows documents directory path."""
@@ -84,12 +86,15 @@ def find_ww_cache_dirs() -> List[Path]:
 
 
 def error_handler(function, path, exc_info):
+    """Error handler for shutil.rmtree."""
     logger.error("function={f} path={p}",
                  f=function, p=path, exc_info=exc_info)
 
 
 def parse_args() -> Namespace:
     ap = argparse.ArgumentParser()
+    ap.description = "Launcher for Winter War mod for Rising Storm 2: Vietnam."
+
     ap.add_argument(
         "--dry-run", dest="dry_run",
         action="store_true", default=False,
@@ -100,7 +105,15 @@ def parse_args() -> Namespace:
         help=f"launch options passed to {VNGAME_EXE}",
     )
 
-    args = ap.parse_args()
+    args, unknown = ap.parse_known_args()
+    if unknown:
+        logger.info("interpreting {a} unknown argument(s) as Steam "
+                    "launch options: {u}", a=len(unknown), u=unknown)
+        if args.launch_options:
+            args.launch_options.extend(unknown)
+        else:
+            args.launch_options = unknown
+
     if args.launch_options:
         lo = args.launch_options
 
@@ -142,13 +155,33 @@ def main():
     if not lo:
         lo = []
 
-    logger.info("launch options: {lo}", lo=lo)
-    command = ["start", f"steam://run/{RS2_APP_ID}//", *lo]
-    logger.info("launch command: {cmd}", cmd=command)
+    logger.info("Steam launch options: {lo}", lo=lo)
+    steam_proto_cmd = f'"steam://run/{RS2_APP_ID}//{" ".join(lo)}"'
 
-    if not args.dry_run:
+    # START has a peculiarity involving double quotes around the first parameter.
+    # If the first parameter has double quotes it uses that as the optional TITLE for the new window.
+    command = ["START", '""', steam_proto_cmd]
+
+    logger.info("launch arguments: {cmd}", cmd=command)
+    command_str = " ".join(command)
+    logger.info("launch command string: '{s}'", s=command_str)
+
+    # Saving the command in a file is a workaround for subprocess.Popen failing
+    # when calling the Windows START command directly due to some weird error with our
+    # custom arguments and Steam protocol URL.
+    with open(CMD_BAT_FILE, "w") as f:
+        logger.info("writing start command to file: '{f}'", f=CMD_BAT_FILE)
+        f.write(command_str)
+
+    if args.dry_run:
         logger.info("launching Rising Storm 2")
-        subprocess.run(command, shell=True)
+        p = subprocess.Popen(CMD_BAT_FILE,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        if out:
+            logger.info("command stdout: {o}", o=out.decode("cp850"))
+        if err:
+            logger.error("command stderr: {o}", o=err.decode("cp850"))
 
 
 if __name__ == "__main__":
@@ -160,7 +193,7 @@ if __name__ == "__main__":
         ctypes.windll.user32.MessageBoxW(
             0,
             f"Error launching Winter War!\r\n"
-            f"{type(_e).__name__}: {_e}.\r\n"
+            f"{type(_e).__name__}: {_e}\r\n"
             f"{extra}\r\n",
             "Error",
             0
