@@ -58,8 +58,11 @@ if SCRIPT_LOG_PATH.exists():
     _rfh.push_application()
     logger.handlers.append(_rfh)
 
+# Check if running as PyInstaller frozen executable.
+FROZEN = True if hasattr(sys, "frozen") else False
+
 # No console window in frozen mode.
-if hasattr(sys, "frozen"):
+if FROZEN:
     logger.info("not adding stdout logging handler in frozen mode")
 else:
     _sh = StreamHandler(sys.stdout, level="INFO")
@@ -173,10 +176,15 @@ def main():
         logger.info("writing start command to file: '{f}'", f=CMD_BAT_FILE)
         f.write(command_str)
 
+    popen_args = {}
+    # Redirecting stdout/stderr when frozen causes OSError for "invalid handle".
+    if not FROZEN:
+        popen_args["stdout"] = subprocess.PIPE
+        popen_args["stderr"] = subprocess.PIPE
+
     if not args.dry_run:
         logger.info("launching Rising Storm 2")
-        p = subprocess.Popen(CMD_BAT_FILE,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen(CMD_BAT_FILE, **popen_args)
         out, err = p.communicate()
         if out:
             logger.info("command stdout: {o}", o=out.decode("cp850"))
