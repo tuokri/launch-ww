@@ -173,7 +173,7 @@ def main():
         logger.info("writing start command to file: '{f}'", f=CMD_BAT_FILE)
         f.write(command_str)
 
-    if args.dry_run:
+    if not args.dry_run:
         logger.info("launching Rising Storm 2")
         p = subprocess.Popen(CMD_BAT_FILE,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
