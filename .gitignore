@@ -130,3 +130,9 @@ dmypy.json
 
 # PyCharm
 .idea/
+
+# Image resources
+*.ico
+
+# Frozen executables
+*.exe
