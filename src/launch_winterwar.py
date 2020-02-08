@@ -202,6 +202,7 @@ def main():
 
     if not VNGAME_EXE_PATH.exists():
         logger.error("unable to locate '{vngame_file}'", vngame_file=VNGAME_EXE_PATH)
+        # Show pop-up to user explaining installation directory requirements?
 
     if not args.dry_run:
         logger.info("launching Rising Storm 2")
