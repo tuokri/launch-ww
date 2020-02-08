@@ -77,6 +77,9 @@ else:
 
 def find_ww_cache_dirs() -> List[Path]:
     """Find all cache/config directories containing Winter War files."""
+    logger.info("scanning '{p}' for WW cache/configuration files",
+                p=CACHE_DIR.absolute())
+
     cache_dirs = [p for p in CACHE_DIR.rglob(WW_PACKAGE)]
     cache_dirs = [
         CACHE_DIR / Path(str(p).lstrip(str(CACHE_DIR)).split(os.path.sep)[0])
@@ -90,17 +93,18 @@ def find_ww_cache_dirs() -> List[Path]:
 
     if WW_INT_PATH.exists():
         cache_dirs.append(WW_INT_PATH)
-        logger.info("found '{int}'", int=WW_INT_PATH)
+        logger.info("found config file: '{int}'", int=WW_INT_PATH)
 
     if WW_INI_PATH.exists():
         cache_dirs.append(WW_INI_PATH)
-        logger.info("found '{ini}'", ini=WW_INI_PATH)
+        logger.info("found localization file: '{ini}'", ini=WW_INI_PATH)
 
     # Defensively add WW_WORKSHOP_ID-directory even if WW_PACKAGE was not found
     # and the directory exists.
     ww_cache_dir = CACHE_DIR / Path(str(WW_WORKSHOP_ID))
     if ww_cache_dir.exists():
         cache_dirs.append(ww_cache_dir)
+        logger.info("found WW cache directory: {cd}", cd=ww_cache_dir)
 
     return list(set(cache_dirs))
 
@@ -188,11 +192,11 @@ def main():
         logger.info("writing start command to file: '{f}'", f=CMD_BAT_FILE)
         f.write(command_str)
 
-    popen_args = {}
+    popen_kwargs = {}
     # Redirecting stdout/stderr when frozen causes OSError for "invalid handle".
     if not FROZEN:
-        popen_args["stdout"] = subprocess.PIPE
-        popen_args["stderr"] = subprocess.PIPE
+        popen_kwargs["stdout"] = subprocess.PIPE
+        popen_kwargs["stderr"] = subprocess.PIPE
 
     if not CMD_BAT_FILE_PATH.exists():
         logger.error("unable to locate '{cmd_file}'", cmd_file=CMD_BAT_FILE_PATH)
@@ -204,9 +208,11 @@ def main():
         logger.error("unable to locate '{vngame_file}'", vngame_file=VNGAME_EXE_PATH)
         # Show pop-up to user explaining installation directory requirements?
 
+    popen_args = [VBS_QUIET_PROXY_FILE, CMD_BAT_FILE]
     if not args.dry_run:
-        logger.info("launching Rising Storm 2")
-        p = subprocess.Popen([VBS_QUIET_PROXY_FILE, CMD_BAT_FILE], **popen_args)
+        logger.info("launching Rising Storm 2, Popen args={a} kwargs={kw}",
+                    a=popen_args, kw=popen_kwargs)
+        p = subprocess.Popen(popen_args, **popen_kwargs)
         out, err = p.communicate()
         if out:
             logger.info("command stdout: {o}", o=out.decode("cp850"))
