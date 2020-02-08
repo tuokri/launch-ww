@@ -183,7 +183,9 @@ def resolve_binary_paths():
         if Path(VNGAME_EXE).exists():
             VNGAME_EXE_PATH = Path(VNGAME_EXE)
         else:
-            raise VNGameExeNotFoundError(f"{VNGAME_EXE} not found")
+            raise VNGameExeNotFoundError(
+                f"{VNGAME_EXE} not found, please make sure that Winter War mod"
+                f"and Rising Storm 2: Vietnam are installed on the same drive")
     logger.info("VNGame.exe found in '{p}'",
                 p=VNGAME_EXE_PATH.absolute())
 
