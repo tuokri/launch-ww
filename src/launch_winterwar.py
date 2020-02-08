@@ -49,7 +49,7 @@ LOGS_DIR = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Logs")
 SCRIPT_LOG_PATH = LOGS_DIR / Path("LaunchWinterWar.log")
 
 logger = Logger(__name__)
-if SCRIPT_LOG_PATH.exists():
+if LOGS_DIR.exists():
     logbook.set_datetime_format("local")
     _rfh_bubble = False if hasattr(sys, "frozen") else True
     _rfh = RotatingFileHandler(SCRIPT_LOG_PATH, level="INFO", bubble=_rfh_bubble)
