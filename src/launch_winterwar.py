@@ -84,10 +84,7 @@ class VNGameExeNotFoundError(Exception):
 
 
 def find_ww_cache_dirs() -> List[Path]:
-    """Find all cache/config directories containing Winter War files."""
-    logger.info("scanning '{p}' for WW cache/configuration files",
-                p=CACHE_DIR.absolute())
-
+    """Find all cache directories containing Winter War files."""
     cache_dirs = [p for p in CACHE_DIR.rglob(WW_PACKAGE)]
     cache_dirs = [
         CACHE_DIR / Path(str(p).lstrip(str(CACHE_DIR)).split(os.path.sep)[0])
@@ -99,14 +96,6 @@ def find_ww_cache_dirs() -> List[Path]:
         logger.info("found audio directory: '{ad}'", ad=audio_dir)
         cache_dirs.append(audio_dir)
 
-    if WW_INT_PATH.exists():
-        cache_dirs.append(WW_INT_PATH)
-        logger.info("found config file: '{int}'", int=WW_INT_PATH)
-
-    if WW_INI_PATH.exists():
-        cache_dirs.append(WW_INI_PATH)
-        logger.info("found localization file: '{ini}'", ini=WW_INI_PATH)
-
     # Defensively add WW_WORKSHOP_ID-directory even if WW_PACKAGE was not found
     # and the directory exists.
     ww_cache_dir = CACHE_DIR / Path(str(WW_WORKSHOP_ID))
@@ -115,6 +104,20 @@ def find_ww_cache_dirs() -> List[Path]:
         logger.info("found WW cache directory: {cd}", cd=ww_cache_dir)
 
     return list(set(cache_dirs))
+
+
+def find_ww_config_files() -> List[Path]:
+    config_files = []
+
+    if WW_INT_PATH.exists():
+        config_files.append(WW_INT_PATH)
+        logger.info("found config file: '{int}'", int=WW_INT_PATH)
+
+    if WW_INI_PATH.exists():
+        config_files.append(WW_INI_PATH)
+        logger.info("found localization file: '{ini}'", ini=WW_INI_PATH)
+
+    return config_files
 
 
 def error_handler(function, path, exc_info):
@@ -190,6 +193,7 @@ def main():
 
     logger.info("user documents directory: '{uh}'", uh=USER_DOCS_DIR)
     cache_dirs = find_ww_cache_dirs()
+    config_files = find_ww_config_files()
     count = len(cache_dirs)
     logger.info(
         "found {count} Winter War cache directo{p}", count=count,
@@ -197,13 +201,20 @@ def main():
 
     for cache_dir in cache_dirs:
         if args.dry_run:
-            logger.info("dry run, not removing: {cd}", cd=cache_dir)
+            logger.info("dry run, not removing: {cd}", cd=cache_dir.absolute())
         else:
-            logger.info("removing: {cd}", cd=cache_dir)
+            logger.info("removing: {cd}", cd=cache_dir.absolute())
             shutil.rmtree(
                 cache_dir,
                 onerror=error_handler,
             )
+
+    for config_file in config_files:
+        if args.dry_run:
+            logger.info("dry run, not removing: {cf}", cf=config_file.absolute())
+        else:
+            logger.info("removing: {cf}", cf=config_file.absolute())
+            config_file.unlink()
 
     resolve_binary_paths()
 
@@ -229,7 +240,7 @@ def main():
         logger.info("writing start command to file: '{f}'", f=CMD_BAT_FILE)
         f.write(command_str)
 
-    popen_kwargs = {}
+    popen_kwargs = {"shell": True}
     # Redirecting stdout/stderr when frozen causes OSError for "invalid handle".
     if not FROZEN:
         popen_kwargs["stdout"] = subprocess.PIPE
