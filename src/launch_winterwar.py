@@ -16,29 +16,33 @@ import logbook
 from logbook import Logger
 from logbook import RotatingFileHandler
 from logbook import StreamHandler
+from winerror import S_OK
 
 RS2_APP_ID = 418460
+WIN64_BINARIES_PATH = Path("Binaries\\Win64\\")
 VNGAME_EXE = "VNGame.exe"
-VNGAME_EXE_PATH = Path("Binaries\\Win64") / Path(VNGAME_EXE)
+VNGAME_EXE_PATH = WIN64_BINARIES_PATH / Path(VNGAME_EXE)
 WW_PACKAGE = "WinterWar.u"
 WW_WORKSHOP_ID = 1758494341
 AUDIO_DIR = Path("CookedPC\\WwiseAudio")
+CMD_BAT_FILE = "LaunchWinterWarCommand.bat"
+CMD_BAT_FILE_PATH = WIN64_BINARIES_PATH / CMD_BAT_FILE
+VBS_QUIET_PROXY_FILE = "LaunchWinterWarCommand.vbs"
+VBS_QUIET_PROXY_FILE_PATH = WIN64_BINARIES_PATH / VBS_QUIET_PROXY_FILE
 
 # Windows constants.
 CSIDL_PERSONAL = 5  # My Documents.
 SHGFP_TYPE_CURRENT = 0  # Get current, not default value.
 
-CMD_BAT_FILE = "Binaries\\Win64\\LaunchWinterWarCommand.bat"
-CMD_BAT_FILE_PATH = Path(CMD_BAT_FILE)
-VBS_QUIET_PROXY_FILE = "Binaries\\Win64\\LaunchWinterWarCommand.vbs"
-VBS_QUIET_PROXY_FILE_PATH = Path(VBS_QUIET_PROXY_FILE)
-
 
 def user_documents_dir() -> Path:
     """Return the user's Windows documents directory path."""
     buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
-    ctypes.windll.shell32.SHGetFolderPathW(
+    ret = ctypes.windll.shell32.SHGetFolderPathW(
         None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf)
+    if ret != S_OK:
+        raise EnvironmentError(
+            f"user documents directory not found with error code: {ret}")
     return Path(buf.value)
 
 
@@ -62,7 +66,7 @@ if LOGS_DIR.exists():
     _rfh.push_application()
     logger.handlers.append(_rfh)
 
-# Check if running as PyInstaller frozen executable.
+# Check if running as PyInstaller generated frozen executable.
 FROZEN = True if hasattr(sys, "frozen") else False
 
 # No console window in frozen mode.
@@ -73,6 +77,10 @@ else:
     logger.info("adding logging handler: {h}", h=_sh)
     _sh.push_application()
     logger.handlers.append(_sh)
+
+
+class VNGameExeNotFoundError(Exception):
+    pass
 
 
 def find_ww_cache_dirs() -> List[Path]:
@@ -150,6 +158,33 @@ def parse_args() -> Namespace:
     return args
 
 
+def resolve_binary_paths():
+    global VNGAME_EXE_PATH
+    global VBS_QUIET_PROXY_FILE_PATH
+    global CMD_BAT_FILE_PATH
+
+    if not VBS_QUIET_PROXY_FILE_PATH.exists():
+        if Path(VBS_QUIET_PROXY_FILE).exists():
+            VBS_QUIET_PROXY_FILE_PATH = Path(VBS_QUIET_PROXY_FILE)
+        else:
+            raise FileNotFoundError(f"{VBS_QUIET_PROXY_FILE} not found")
+    logger.info("required script found in '{p}'", p=VBS_QUIET_PROXY_FILE_PATH)
+
+    if not CMD_BAT_FILE_PATH.exists():
+        if Path(CMD_BAT_FILE).exists():
+            CMD_BAT_FILE_PATH = Path(CMD_BAT_FILE)
+        else:
+            raise FileNotFoundError(f"{CMD_BAT_FILE} not found")
+    logger.info("required script found in '{p}'", p=CMD_BAT_FILE_PATH)
+
+    if not VNGAME_EXE_PATH.exists():
+        if Path(VNGAME_EXE).exists():
+            VNGAME_EXE_PATH = Path(VNGAME_EXE)
+        else:
+            raise VNGameExeNotFoundError(f"{VNGAME_EXE} not found")
+    logger.info("VNGame.exe found in '{p}'", p=VNGAME_EXE_PATH)
+
+
 def main():
     args = parse_args()
 
@@ -169,6 +204,8 @@ def main():
                 cache_dir,
                 onerror=error_handler,
             )
+
+    resolve_binary_paths()
 
     lo = args.launch_options
     if not lo:
@@ -198,17 +235,7 @@ def main():
         popen_kwargs["stdout"] = subprocess.PIPE
         popen_kwargs["stderr"] = subprocess.PIPE
 
-    if not CMD_BAT_FILE_PATH.exists():
-        logger.error("unable to locate '{cmd_file}'", cmd_file=CMD_BAT_FILE_PATH)
-
-    if not VBS_QUIET_PROXY_FILE_PATH.exists():
-        logger.error("unable to locate '{vbs_file}'", vbs_file=VBS_QUIET_PROXY_FILE_PATH)
-
-    if not VNGAME_EXE_PATH.exists():
-        logger.error("unable to locate '{vngame_file}'", vngame_file=VNGAME_EXE_PATH)
-        # Show pop-up to user explaining installation directory requirements?
-
-    popen_args = [VBS_QUIET_PROXY_FILE, CMD_BAT_FILE]
+    popen_args = [str(VBS_QUIET_PROXY_FILE_PATH), str(CMD_BAT_FILE_PATH)]
     if not args.dry_run:
         logger.info("launching Rising Storm 2, Popen args={a} kwargs={kw}",
                     a=popen_args, kw=popen_kwargs)
@@ -222,6 +249,7 @@ def main():
 
 if __name__ == "__main__":
     try:
+        logger.info("cwd='{cwd}'", cwd=os.getcwd())
         main()
     except Exception as _e:
         extra = (f"Check '{SCRIPT_LOG_PATH}' for more information."
