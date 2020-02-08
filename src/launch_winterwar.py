@@ -47,6 +47,8 @@ CACHE_DIR = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Cache")
 PUBLISHED_DIR = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Published")
 LOGS_DIR = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Logs")
 SCRIPT_LOG_PATH = LOGS_DIR / Path("LaunchWinterWar.log")
+WW_INT_PATH = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Localization\\INT\\WinterWar.int")
+WW_INI_PATH = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Config\\ROGame_WinterWar.ini")
 
 logger = Logger(__name__)
 if LOGS_DIR.exists():
@@ -74,12 +76,25 @@ else:
 
 
 def find_ww_cache_dirs() -> List[Path]:
-    """Find all cache directories containing Winter War files."""
+    """Find all cache/config directories containing Winter War files."""
     cache_dirs = [p for p in CACHE_DIR.rglob(WW_PACKAGE)]
     cache_dirs = [
         CACHE_DIR / Path(str(p).lstrip(str(CACHE_DIR)).split(os.path.sep)[0])
         for p in cache_dirs
     ]
+
+    audio_dir = PUBLISHED_DIR / AUDIO_DIR
+    if audio_dir.exists():
+        logger.info("found audio directory: '{ad}'", ad=audio_dir)
+        cache_dirs.append(audio_dir)
+
+    if WW_INT_PATH.exists():
+        cache_dirs.append(WW_INT_PATH)
+        logger.info("found '{int}'", int=WW_INT_PATH)
+
+    if WW_INI_PATH.exists():
+        cache_dirs.append(WW_INI_PATH)
+        logger.info("found '{ini}'", ini=WW_INI_PATH)
 
     # Defensively add WW_WORKSHOP_ID-directory even if WW_PACKAGE was not found
     # and the directory exists.
@@ -140,11 +155,6 @@ def main():
     logger.info(
         "found {count} Winter War cache directo{p}", count=count,
         p="ry" if count == 1 else "ries")
-
-    audio_dir = PUBLISHED_DIR / AUDIO_DIR
-    if audio_dir.exists():
-        logger.info("found audio directory: '{ad}'", ad=audio_dir)
-        cache_dirs.append(audio_dir)
 
     for cache_dir in cache_dirs:
         if args.dry_run:
