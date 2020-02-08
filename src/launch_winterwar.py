@@ -171,21 +171,21 @@ def resolve_binary_paths():
             VBS_QUIET_PROXY_FILE_PATH = Path(VBS_QUIET_PROXY_FILE)
         else:
             raise FileNotFoundError(f"{VBS_QUIET_PROXY_FILE} not found")
-    logger.info("required script found in '{p}'", p=VBS_QUIET_PROXY_FILE_PATH)
+    logger.info("required script found in '{p}'", p=VBS_QUIET_PROXY_FILE_PATH.absolute())
 
     if not CMD_BAT_FILE_PATH.exists():
         if Path(CMD_BAT_FILE).exists():
             CMD_BAT_FILE_PATH = Path(CMD_BAT_FILE)
         else:
             raise FileNotFoundError(f"{CMD_BAT_FILE} not found")
-    logger.info("required script found in '{p}'", p=CMD_BAT_FILE_PATH)
+    logger.info("required script found in '{p}'", p=CMD_BAT_FILE_PATH.absolute())
 
     if not VNGAME_EXE_PATH.exists():
         if Path(VNGAME_EXE).exists():
             VNGAME_EXE_PATH = Path(VNGAME_EXE)
         else:
             raise VNGameExeNotFoundError(f"{VNGAME_EXE} not found")
-    logger.info("VNGame.exe found in '{p}'", p=VNGAME_EXE_PATH)
+    logger.info("VNGame.exe found in '{p}'", p=VNGAME_EXE_PATH.absolute())
 
 
 def main():
@@ -236,8 +236,8 @@ def main():
     # Saving the command in a file is a workaround for subprocess.Popen failing
     # when calling the Windows START command directly due to some weird error with our
     # custom arguments and Steam protocol URL.
-    with open(CMD_BAT_FILE, "w") as f:
-        logger.info("writing start command to file: '{f}'", f=CMD_BAT_FILE)
+    with open(CMD_BAT_FILE_PATH, "w") as f:
+        logger.info("writing start command to file: '{f}'", f=CMD_BAT_FILE_PATH.absolute())
         f.write(command_str)
 
     popen_kwargs = {"shell": True}
