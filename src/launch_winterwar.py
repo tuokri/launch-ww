@@ -216,8 +216,6 @@ def main():
             logger.info("removing: {cf}", cf=config_file.absolute())
             config_file.unlink()
 
-    resolve_binary_paths()
-
     lo = args.launch_options
     if not lo:
         lo = []
@@ -239,6 +237,8 @@ def main():
     with open(CMD_BAT_FILE_PATH, "w") as f:
         logger.info("writing start command to file: '{f}'", f=CMD_BAT_FILE_PATH.absolute())
         f.write(command_str)
+
+    resolve_binary_paths()
 
     popen_kwargs = {"shell": True}
     # Redirecting stdout/stderr when frozen causes OSError for "invalid handle".
