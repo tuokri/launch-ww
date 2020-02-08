@@ -19,8 +19,7 @@ from logbook import StreamHandler
 
 RS2_APP_ID = 418460
 VNGAME_EXE = "VNGame.exe"
-VNGAME_EXE_PATH = Path(
-    "steamapps\\common\\Rising Storm 2\\Binaries\\Win64") / Path(VNGAME_EXE)
+VNGAME_EXE_PATH = Path("Binaries\\Win64") / Path(VNGAME_EXE)
 WW_PACKAGE = "WinterWar.u"
 WW_WORKSHOP_ID = 1758494341
 AUDIO_DIR = Path("CookedPC\\WwiseAudio")
@@ -29,7 +28,10 @@ AUDIO_DIR = Path("CookedPC\\WwiseAudio")
 CSIDL_PERSONAL = 5  # My Documents.
 SHGFP_TYPE_CURRENT = 0  # Get current, not default value.
 
-CMD_BAT_FILE = "LaunchWinterWarCommand.bat"
+CMD_BAT_FILE = "Binaries\\Win64\\LaunchWinterWarCommand.bat"
+CMD_BAT_FILE_PATH = Path(CMD_BAT_FILE)
+VBS_QUIET_PROXY_FILE = "Binaries\\Win64\\LaunchWinterWarCommand.vbs"
+VBS_QUIET_PROXY_FILE_PATH = Path(VBS_QUIET_PROXY_FILE)
 
 
 def user_documents_dir() -> Path:
@@ -181,6 +183,15 @@ def main():
     if not FROZEN:
         popen_args["stdout"] = subprocess.PIPE
         popen_args["stderr"] = subprocess.PIPE
+
+    if not CMD_BAT_FILE_PATH.exists():
+        logger.error("unable to locate '{cmd_file}'", cmd_file=CMD_BAT_FILE_PATH)
+
+    if not VBS_QUIET_PROXY_FILE_PATH.exists():
+        logger.error("unable to locate '{vbs_file}'", vbs_file=VBS_QUIET_PROXY_FILE_PATH)
+
+    if not VNGAME_EXE_PATH.exists():
+        logger.error("unable to locate '{vngame_file}'", vngame_file=VNGAME_EXE_PATH)
 
     if not args.dry_run:
         logger.info("launching Rising Storm 2")
