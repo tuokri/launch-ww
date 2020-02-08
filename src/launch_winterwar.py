@@ -16,7 +16,6 @@ import logbook
 from logbook import Logger
 from logbook import RotatingFileHandler
 from logbook import StreamHandler
-from winerror import S_OK
 
 RS2_APP_ID = 418460
 WIN64_BINARIES_PATH = Path("Binaries\\Win64\\")
@@ -33,6 +32,7 @@ VBS_QUIET_PROXY_FILE_PATH = WIN64_BINARIES_PATH / VBS_QUIET_PROXY_FILE
 # Windows constants.
 CSIDL_PERSONAL = 5  # My Documents.
 SHGFP_TYPE_CURRENT = 0  # Get current, not default value.
+S_OK = 0
 
 
 def user_documents_dir() -> Path:
