@@ -205,7 +205,7 @@ def main():
 
     if not args.dry_run:
         logger.info("launching Rising Storm 2")
-        p = subprocess.Popen(CMD_BAT_FILE, **popen_args)
+        p = subprocess.Popen([VBS_QUIET_PROXY_FILE, CMD_BAT_FILE], **popen_args)
         out, err = p.communicate()
         if out:
             logger.info("command stdout: {o}", o=out.decode("cp850"))
