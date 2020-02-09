@@ -4,6 +4,7 @@ workshop cache to avoid conflicts and run Rising Storm 2.
 """
 import argparse
 import ctypes.wintypes
+import math
 import os
 import shutil
 import subprocess
@@ -13,9 +14,19 @@ from pathlib import Path
 from typing import List
 
 import logbook
+from PyQt5 import QtCore
+from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QLabel
+from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtWidgets import QVBoxLayout
+from PyQt5.QtWidgets import QWidget
 from logbook import Logger
 from logbook import RotatingFileHandler
 from logbook import StreamHandler
+
+import resources
 
 RS2_APP_ID = 418460
 WIN64_BINARIES_PATH = Path("Binaries\\Win64\\")
@@ -184,8 +195,8 @@ def resolve_binary_paths():
             VNGAME_EXE_PATH = Path(VNGAME_EXE)
         else:
             raise VNGameExeNotFoundError(
-                f"{VNGAME_EXE} not found, please make sure that Winter War mod"
-                f"and Rising Storm 2: Vietnam are installed on the same drive")
+                f"{VNGAME_EXE} not found, please make sure Winter War mod "
+                f"and Rising Storm 2: Vietnam are installed on the same drive.")
     logger.info("VNGame.exe found in '{p}'",
                 p=VNGAME_EXE_PATH.absolute())
 
@@ -260,23 +271,61 @@ def main():
             logger.error("command stderr: {o}", o=err.decode("cp850"))
 
 
+class Gui(QWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.layout = QVBoxLayout()
+
+        self.img_label = QLabel()
+        self.image = QPixmap(":/ww_banner.png")
+        size = self.image.size()
+        width = math.floor(size.width() * 0.33)
+        height = math.floor(size.height() * 0.33)
+        self.image = self.image.scaled(width, height, QtCore.Qt.KeepAspectRatio)
+        self.img_label.setPixmap(self.image)
+
+        self.text_label = QLabel(
+            "Talvisota - Winter War launcher. This launcher is ran minimized "
+            "to track Steam play time hours. You may close this window or leave it open."
+        )
+        self.text_label.setWordWrap(True)
+        self.text_label.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
+
+        self.layout.addWidget(self.img_label)
+        self.layout.addWidget(self.text_label)
+
+        self.setLayout(self.layout)
+        self.setWindowFlags(QtCore.Qt.MSWindowsFixedSizeDialogHint)
+        self.setWindowTitle("Talvisota - Winter War")
+        self.setWindowIcon(QIcon(":/ww_icon.ico"))
+        self.setWindowState(QtCore.Qt.WindowMinimized)
+
+    def warn(self, title: str, msg: str):
+        QMessageBox.warning(self, title, msg)
+
+
 if __name__ == "__main__":
+    logger.info("resources loaded: {r}", r=resources)
+
+    _app = QApplication(sys.argv)
+    _gui = Gui()
+    _gui.show()
+    logger.info("GUI init done")
+
     try:
         logger.info("cwd='{cwd}'", cwd=os.getcwd())
         main()
     except Exception as _e:
-        extra = (f"Check '{SCRIPT_LOG_PATH}' for more information."
-                 if SCRIPT_LOG_PATH.exists() else "")
-        ctypes.windll.user32.MessageBoxW(
-            0,
-            f"Error launching Winter War!\r\n"
-            f"{type(_e).__name__}: {_e}\r\n"
-            f"{extra}\r\n",
-            "Error",
-            0
-        )
+        _extra = (f"Check '{SCRIPT_LOG_PATH}' for more information."
+                  if SCRIPT_LOG_PATH.exists() else "")
+        _msg = (f"Error launching Winter War!\r\n"
+                f"{type(_e).__name__}: {_e}\r\n"
+                f"{_extra}\r\n")
+        _gui.warn("Error", _msg)
         # noinspection PyBroadException
         try:
             logger.exception("error running script")
         except Exception:
             pass
+
+    sys.exit(_app.exec_())
