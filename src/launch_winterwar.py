@@ -9,12 +9,16 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from argparse import Namespace
 from pathlib import Path
 from typing import List
 
 import logbook
+import psutil
 from PyQt5 import QtCore
+from PyQt5.QtCore import QObject
+from PyQt5.QtCore import QThread
 from PyQt5.QtGui import QIcon
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QApplication
@@ -271,6 +275,35 @@ def main():
             logger.error("command stderr: {o}", o=err.decode("cp850"))
 
 
+class VNGameProcessListener(QObject):
+    vngame_exe_finished = QtCore.pyqtSignal(int)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    @staticmethod
+    def is_alive() -> bool:
+        return "VNGame.exe" in [p.name() for p in psutil.process_iter()]
+
+    @QtCore.pyqtSlot()
+    def listen(self):
+        logger.info("{c}: waiting for VNGame.exe to start",
+                    c=self.__class__.__name__)
+        while not self.is_alive():
+            time.sleep(1)
+        logger.info("{c}: VNGame.exe started",
+                    c=self.__class__.__name__)
+
+        logger.info("{c}: waiting for VNGame.exe to finish",
+                    c=self.__class__.__name__)
+        while self.is_alive():
+            time.sleep(1)
+        logger.info("{c}: VNGame.exe finished",
+                    c=self.__class__.__name__)
+
+        self.vngame_exe_finished.emit(0)
+
+
 class Gui(QWidget):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -309,6 +342,15 @@ if __name__ == "__main__":
 
     _app = QApplication(sys.argv)
     _gui = Gui()
+    _thread = QThread()
+    _vpl = VNGameProcessListener()
+
+    _vpl.vngame_exe_finished.connect(_app.exit)
+    _thread.started.connect(_vpl.listen)
+
+    _vpl.moveToThread(_thread)
+    _thread.start()
+
     _gui.show()
     logger.info("GUI init done")
 
