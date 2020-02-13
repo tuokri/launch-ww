@@ -1,6 +1,9 @@
 """
-Purge cached Winter War mod files in Rising Storm 2
-workshop cache to avoid conflicts and run Rising Storm 2.
+Launcher for Talvisota - Winter War community expansion
+for Rising Storm 2: Vietnam.
+
+Purges cached Talvisota - Winter War mod files in user documents
+directory to avoid conflicts and runs Rising Storm 2.
 """
 import argparse
 import ctypes.wintypes
@@ -177,6 +180,9 @@ def parse_args() -> Namespace:
 
 
 def resolve_binary_paths():
+    """
+    TODO: Refactor (remove) global usage.
+    """
     global VNGAME_EXE_PATH
     global VBS_QUIET_PROXY_FILE_PATH
     global CMD_BAT_FILE_PATH
