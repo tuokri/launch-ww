@@ -42,10 +42,6 @@ VNGAME_EXE_PATH = WIN64_BINARIES_PATH / Path(VNGAME_EXE)
 WW_PACKAGE = "WinterWar.u"
 WW_WORKSHOP_ID = 1758494341
 AUDIO_DIR = Path("CookedPC\\WwiseAudio")
-CMD_BAT_FILE = "LaunchWinterWarCommand.bat"
-CMD_BAT_FILE_PATH = WIN64_BINARIES_PATH / CMD_BAT_FILE
-VBS_QUIET_PROXY_FILE = "LaunchWinterWarCommand.vbs"
-VBS_QUIET_PROXY_FILE_PATH = WIN64_BINARIES_PATH / VBS_QUIET_PROXY_FILE
 
 # Windows constants.
 CSIDL_PERSONAL = 5  # My Documents.
@@ -153,19 +149,8 @@ def parse_args() -> Namespace:
         action="store_true", default=False,
         help="run without deleting files or launching Rising Storm 2",
     )
-    ap.add_argument(
-        "--launch-options", nargs="*",
-        help=f"launch options passed to {VNGAME_EXE}",
-    )
 
-    args, unknown = ap.parse_known_args()
-    if unknown:
-        logger.info("interpreting {a} unknown argument(s) as Steam "
-                    "launch options: {u}", a=len(unknown), u=unknown)
-        if args.launch_options:
-            args.launch_options.extend(unknown)
-        else:
-            args.launch_options = unknown
+    args = ap.parse_args()
 
     if args.launch_options:
         lo = args.launch_options
@@ -184,21 +169,6 @@ def resolve_binary_paths():
     TODO: Refactor (remove) global usage.
     """
     global VNGAME_EXE_PATH
-    global VBS_QUIET_PROXY_FILE_PATH
-    global CMD_BAT_FILE_PATH
-
-    if not VBS_QUIET_PROXY_FILE_PATH.exists():
-        if Path(VBS_QUIET_PROXY_FILE).exists():
-            VBS_QUIET_PROXY_FILE_PATH = Path(VBS_QUIET_PROXY_FILE)
-        else:
-            raise FileNotFoundError(f"{VBS_QUIET_PROXY_FILE} not found")
-    logger.info("required script found in '{p}'",
-                p=VBS_QUIET_PROXY_FILE_PATH.absolute())
-
-    parent = VBS_QUIET_PROXY_FILE_PATH.parent
-    CMD_BAT_FILE_PATH = parent / CMD_BAT_FILE
-    logger.info("using parent path '{p}' for '{cmd_file}'",
-                p=parent, cmd_file=CMD_BAT_FILE)
 
     if not VNGAME_EXE_PATH.exists():
         if Path(VNGAME_EXE).exists():
@@ -256,20 +226,13 @@ def main():
 
     resolve_binary_paths()
 
-    # Saving the command in a file is a workaround for subprocess.Popen failing
-    # when calling the Windows START command directly due to some weird error with our
-    # custom arguments and Steam protocol URL.
-    with open(CMD_BAT_FILE_PATH, "w") as f:
-        logger.info("writing start command to file: '{f}'", f=CMD_BAT_FILE_PATH.absolute())
-        f.write(command_str)
-
     popen_kwargs = {"shell": True}
     # Redirecting stdout/stderr when frozen causes OSError for "invalid handle".
     if not FROZEN:
         popen_kwargs["stdout"] = subprocess.PIPE
         popen_kwargs["stderr"] = subprocess.PIPE
 
-    popen_args = [str(VBS_QUIET_PROXY_FILE_PATH), str(CMD_BAT_FILE_PATH)]
+    popen_args = []
     if not args.dry_run:
         logger.info("launching Rising Storm 2, Popen args={a} kwargs={kw}",
                     a=popen_args, kw=popen_kwargs)
