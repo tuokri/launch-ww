@@ -19,7 +19,6 @@ from typing import List
 
 import logbook
 import psutil
-import resources
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject
 from PyQt5.QtCore import QThread
@@ -33,6 +32,8 @@ from PyQt5.QtWidgets import QWidget
 from logbook import Logger
 from logbook import RotatingFileHandler
 from logbook import StreamHandler
+
+import resources
 
 RS2_APP_ID = 418460
 WIN64_BINARIES_PATH = Path("Binaries\\Win64\\")
