@@ -208,7 +208,7 @@ def main():
         popen_kwargs["stdout"] = subprocess.PIPE
         popen_kwargs["stderr"] = subprocess.PIPE
 
-    popen_args = [steam_proto_cmd]
+    popen_args = ["start", steam_proto_cmd]
     if not args.dry_run:
         logger.info("launching Rising Storm 2, Popen args={a} kwargs={kw}",
                     a=popen_args, kw=popen_kwargs)
