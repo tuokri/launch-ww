@@ -19,6 +19,7 @@ from typing import List
 
 import logbook
 import psutil
+import resources
 from PyQt5 import QtCore
 from PyQt5.QtCore import QObject
 from PyQt5.QtCore import QThread
@@ -32,8 +33,6 @@ from PyQt5.QtWidgets import QWidget
 from logbook import Logger
 from logbook import RotatingFileHandler
 from logbook import StreamHandler
-
-import resources
 
 RS2_APP_ID = 418460
 WIN64_BINARIES_PATH = Path("Binaries\\Win64\\")
@@ -150,18 +149,7 @@ def parse_args() -> Namespace:
         help="run without deleting files or launching Rising Storm 2",
     )
 
-    args = ap.parse_args()
-
-    if args.launch_options:
-        lo = args.launch_options
-
-        # List of 1 string.
-        if len(lo) == 1:
-            lo = lo[0].split(" ")
-
-        args.launch_options = lo
-
-    return args
+    return ap.parse_args()
 
 
 def resolve_binary_paths():
@@ -209,20 +197,7 @@ def main():
             logger.info("removing: {cf}", cf=config_file.absolute())
             config_file.unlink()
 
-    lo = args.launch_options
-    if not lo:
-        lo = []
-
-    logger.info("Steam launch options: {lo}", lo=lo)
-    steam_proto_cmd = f'"steam://run/{RS2_APP_ID}//{" ".join(lo)}"'
-
-    # START has a peculiarity involving double quotes around the first parameter.
-    # If the first parameter has double quotes it uses that as the optional TITLE for the new window.
-    command = ["START", '""', steam_proto_cmd]
-
-    logger.info("launch arguments: {cmd}", cmd=command)
-    command_str = " ".join(command)
-    logger.info("launch command string: '{s}'", s=command_str)
+    steam_proto_cmd = f"steam://run/{RS2_APP_ID}"
 
     resolve_binary_paths()
 
@@ -232,7 +207,7 @@ def main():
         popen_kwargs["stdout"] = subprocess.PIPE
         popen_kwargs["stderr"] = subprocess.PIPE
 
-    popen_args = []
+    popen_args = [steam_proto_cmd]
     if not args.dry_run:
         logger.info("launching Rising Storm 2, Popen args={a} kwargs={kw}",
                     a=popen_args, kw=popen_kwargs)
