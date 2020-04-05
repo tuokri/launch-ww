@@ -1,7 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-from build_utils import binaries
-from build_utils import icon
+from pathlib import Path
+
+_crt_dlls_path = 'C:\\Program Files (x86)\\Windows Kits\\10\\Redist\\10.0.18362.0\\ucrt\\DLLs\\x64'
+binaries = [(str(p), ".") for p in Path(_crt_dlls_path).iterdir()]
+
+_icon_path = Path('resources\\ww_icon.ico')
+icon = str(_icon_path) if _icon_path.exists() else None
 
 block_cipher = None
 
