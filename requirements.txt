@@ -1,0 +1,4 @@
+Logbook
+psutil
+PyQt5
+PyQt5-sip
