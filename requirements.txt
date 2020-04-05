@@ -1,4 +1,9 @@
+altgraph
+future
 Logbook
+pefile
 psutil
+PyInstaller
 PyQt5
 PyQt5-sip
+pywin32-ctypes
