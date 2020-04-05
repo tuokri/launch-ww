@@ -25,9 +25,8 @@ Newest Python version available at the time is recommended.
 
     `pip install -r requirements.txt`
 
-7. In `launch_winterwar.spec` (or `launch_wwserver.spec` if building the server launcher)
-update the `crt_dlls_path` variable to point to the correct location for x64 UCRT DLLs.
-This path will vary depending on where Windows 10 SDK was installed.
+7. In `build_utils.py` update the `_crt_dlls_path` variable to point to the correct location
+for x64 UCRT DLLs. This path will vary depending on where Windows 10 SDK was installed.
 
 8. Generate resources file.
 
