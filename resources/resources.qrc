@@ -1,0 +1,9 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource>
+        <file>ww_banner.png</file>
+    </qresource>
+    <qresource>
+        <file>ww_icon.ico</file>
+    </qresource>
+</RCC>
