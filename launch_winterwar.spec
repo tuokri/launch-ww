@@ -3,12 +3,15 @@ from pathlib import Path
 
 block_cipher = None
 
-icon_path = Path('Steam_Icon.ico')
+icon_path = Path('resources\\ww_icon.ico')
 icon = str(icon_path) if icon_path.exists() else None
+
+crt_dlls_path = 'C:\\Program Files (x86)\\Windows Kits\\10\\Redist\\10.0.18362.0\\ucrt\\DLLs\\x64'
+binaries = [crt_dlls_path]
 
 a = Analysis(['src\\launch_winterwar.py'],
              pathex=[],
-             binaries=[],
+             binaries=binaries,
              datas=[],
              hiddenimports=[],
              hookspath=[],
