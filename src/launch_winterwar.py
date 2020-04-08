@@ -61,12 +61,15 @@ def user_documents_dir() -> Path:
 
 
 USER_DOCS_DIR = user_documents_dir()
-CACHE_DIR = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Cache")
-PUBLISHED_DIR = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Published")
-LOGS_DIR = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Logs")
+ROGAME_PATH = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame")
+CACHE_DIR = ROGAME_PATH / Path("Cache")
+PUBLISHED_DIR = ROGAME_PATH / Path("Published")
+LOGS_DIR = ROGAME_PATH / Path("Logs")
+WW_INT_PATH = ROGAME_PATH / Path("Localization\\INT\\WinterWar.int")
+WW_INI_PATH = ROGAME_PATH / Path("Config\\ROGame_WinterWar.ini")
+ROUI_INI_PATH = ROGAME_PATH / Path("Config\\ROUI.ini")
 SCRIPT_LOG_PATH = LOGS_DIR / Path("LaunchWinterWar.log")
-WW_INT_PATH = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Localization\\INT\\WinterWar.int")
-WW_INI_PATH = USER_DOCS_DIR / Path("My Games\\Rising Storm 2\\ROGame\\Config\\ROGame_WinterWar.ini")
+WW_LAUNCHER_INI_PATH = ROGAME_PATH / Path("Config\\WWLauncher.ini")
 
 logger = Logger(__name__)
 if LOGS_DIR.exists():
@@ -250,23 +253,29 @@ class VNGameProcessListener(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._stopped = False
 
     @staticmethod
     def is_alive() -> bool:
         return VNGAME_EXE in [p.name() for p in psutil.process_iter()]
 
+    def stop(self):
+        logger.info("{c}: stop requested",
+                    c=self.__class__.__name__)
+        self._stopped = True
+
     @QtCore.pyqtSlot()
     def listen(self):
         logger.info("{c}: waiting for {vg} to start",
                     c=self.__class__.__name__, vg=VNGAME_EXE)
-        while not self.is_alive():
+        while not self.is_alive() and not self._stopped:
             time.sleep(1)
         logger.info("{c}: {vg} started",
                     c=self.__class__.__name__, vg=VNGAME_EXE)
 
         logger.info("{c}: waiting for {vg} to finish",
                     c=self.__class__.__name__, vg=VNGAME_EXE)
-        while self.is_alive():
+        while self.is_alive() and not self._stopped:
             time.sleep(3)
         logger.info("{c}: {vg} finished",
                     c=self.__class__.__name__, vg=VNGAME_EXE)
@@ -343,6 +352,7 @@ if __name__ == "__main__":
         # noinspection PyBroadException
         try:
             logger.exception("error running script")
+            _vpl.stop()
         except Exception:
             pass
 
