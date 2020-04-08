@@ -170,6 +170,20 @@ def resolve_binary_paths():
                 p=VNGAME_EXE_PATH.absolute())
 
 
+def run_game(popen_args: list, **popen_kwargs):
+    logger.info("launching Rising Storm 2, Popen args={a} kwargs={kw}",
+                a=popen_args, kw=popen_kwargs)
+    p = subprocess.Popen(popen_args, **popen_kwargs)
+    out, err = p.communicate()
+    try:
+        if out:
+            logger.info("command stdout: {o}", o=out.decode("cp850"))
+        if err:
+            logger.error("command stderr: {o}", o=err.decode("cp850"))
+    except Exception as e:
+        logger.error("error decoding process output: {e}", e=e)
+
+
 def main():
     args = parse_args()
 
@@ -209,15 +223,26 @@ def main():
         popen_kwargs["stderr"] = subprocess.PIPE
 
     popen_args = ["start", steam_proto_cmd]
-    if not args.dry_run:
-        logger.info("launching Rising Storm 2, Popen args={a} kwargs={kw}",
-                    a=popen_args, kw=popen_kwargs)
-        p = subprocess.Popen(popen_args, **popen_kwargs)
-        out, err = p.communicate()
-        if out:
-            logger.info("command stdout: {o}", o=out.decode("cp850"))
-        if err:
-            logger.error("command stderr: {o}", o=err.decode("cp850"))
+    if args.dry_run:
+        logger.info("dry run, not launching Rising Storm 2")
+        return
+
+    try:
+        run_game(popen_args, **popen_kwargs)
+        for i in range(15):
+            logger.info("waiting for {vg} to start", vg=VNGAME_EXE)
+            if VNGameProcessListener.is_alive():
+                logger.info("{vg} started", vg=VNGAME_EXE)
+                return
+            time.sleep(1)
+        return
+    except Exception as e:
+        logger.error("error launching RS2 via Steam URL protocol: {e}", e=e)
+
+    # Steam protocol URL doesn't work on some systems.
+    logger.info("attempting to launch RS2 using direct path to executable")
+    popen_args = [str(VNGAME_EXE_PATH.absolute())]
+    run_game(popen_args)
 
 
 class VNGameProcessListener(QObject):
@@ -228,23 +253,23 @@ class VNGameProcessListener(QObject):
 
     @staticmethod
     def is_alive() -> bool:
-        return "VNGame.exe" in [p.name() for p in psutil.process_iter()]
+        return VNGAME_EXE in [p.name() for p in psutil.process_iter()]
 
     @QtCore.pyqtSlot()
     def listen(self):
-        logger.info("{c}: waiting for VNGame.exe to start",
-                    c=self.__class__.__name__)
+        logger.info("{c}: waiting for {vg} to start",
+                    c=self.__class__.__name__, vg=VNGAME_EXE)
         while not self.is_alive():
             time.sleep(1)
-        logger.info("{c}: VNGame.exe started",
-                    c=self.__class__.__name__)
+        logger.info("{c}: {vg} started",
+                    c=self.__class__.__name__, vg=VNGAME_EXE)
 
-        logger.info("{c}: waiting for VNGame.exe to finish",
-                    c=self.__class__.__name__)
+        logger.info("{c}: waiting for {vg} to finish",
+                    c=self.__class__.__name__, vg=VNGAME_EXE)
         while self.is_alive():
-            time.sleep(1)
-        logger.info("{c}: VNGame.exe finished",
-                    c=self.__class__.__name__)
+            time.sleep(3)
+        logger.info("{c}: {vg} finished",
+                    c=self.__class__.__name__, vg=VNGAME_EXE)
 
         self.vngame_exe_finished.emit(0)
 
@@ -264,7 +289,9 @@ class Gui(QWidget):
 
         self.text_label = QLabel(
             "Talvisota - Winter War launcher. This launcher is ran minimized "
-            "to track Steam play time hours. You may close this window or leave it open."
+            "to track Steam play time. You may close this window or leave it open.\r\n\r\n"
+            "Please note that the standard Rising Storm 2: Vietnam main menu and "
+            "server browser are used for Talvisota - Winter War."
         )
         self.text_label.setWordWrap(True)
         self.text_label.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
@@ -283,6 +310,10 @@ class Gui(QWidget):
 
 
 if __name__ == "__main__":
+    import multiprocessing
+
+    multiprocessing.freeze_support()
+
     logger.info("resources loaded: {r}", r=resources)
 
     _app = QApplication(sys.argv)
