@@ -7,6 +7,7 @@ directory to avoid conflicts and runs Rising Storm 2.
 """
 import argparse
 import ctypes.wintypes
+import distutils.util
 import math
 import os
 import shutil
@@ -32,6 +33,7 @@ from PyQt5.QtWidgets import QWidget
 from logbook import Logger
 from logbook import RotatingFileHandler
 from logbook import StreamHandler
+from udk_configparser import UDKConfigParser
 
 import resources
 
@@ -92,6 +94,10 @@ if FROZEN:
 else:
     _sh = StreamHandler(sys.stdout, level="INFO")
     logger.info("adding logging handler: {h}", h=_sh)
+    _sh.format_string = (
+        "[{record.time}] {record.level_name}: {record.channel}: "
+        "{record.func_name}(): {record.message}"
+    )
     _sh.push_application()
     logger.handlers.append(_sh)
 
@@ -187,6 +193,85 @@ def run_game(popen_args: list, **popen_kwargs):
         logger.error("error decoding process output: {e}", e=e)
 
 
+def write_launch_status(status: bool):
+    status = str(status)
+    cg = UDKConfigParser()
+    try:
+        with open(WW_LAUNCHER_INI_PATH, "w") as f:
+            cg["Launcher"] = {}
+            cg["Launcher"]["bHasBeenRun"] = status
+            logger.info("writing file: {f}, bHasBeenRun={b}",
+                        f=WW_LAUNCHER_INI_PATH.absolute(), b=status)
+            cg.write(f, space_around_delimiters=False)
+    except Exception as e:
+        logger.error("error writing launch status: {e}",
+                     e=e, exc_info=True)
+
+
+def has_launcher_been_run() -> bool:
+    """
+    Run status is determined from WW_LAUNCHER_INI_PATH config file's
+    'Launcher' section's 'bHasBeenRun' value.
+
+    The function creates WW_LAUNCHER_INI_PATH if it does not exist.
+    """
+    try:
+        if not WW_LAUNCHER_INI_PATH.exists():
+            logger.info("'{f}' does not exist",
+                        f=WW_LAUNCHER_INI_PATH.absolute())
+            write_launch_status(False)
+    except Exception as e:
+        logger.error("error: {e}", e=e, exc_info=True)
+        return False
+
+    try:
+        cg = UDKConfigParser()
+        cg.read(WW_LAUNCHER_INI_PATH)
+        has_been_run = bool(
+            distutils.util.strtobool(cg["Launcher"]["bHasBeenRun"]))
+        logger.info("read '{f}' bHasBeenRun={b}",
+                    f=WW_LAUNCHER_INI_PATH.absolute(), b=has_been_run)
+        return has_been_run
+    except Exception as e:
+        logger.error("error reading {f}: {e}",
+                     f=WW_LAUNCHER_INI_PATH.absolute(), e=e)
+        return False
+
+
+def reset_server_filters():
+    """
+    Reset server browser filters to defaults.
+    """
+    try:
+        cg = UDKConfigParser()
+        cg.read(ROUI_INI_PATH)
+        ogs = cg["ROGame.RODataStore_OnlineGameSearch"]
+        ogs["FilterEmptyServers"] = "False"
+        ogs["FilterFullServers"] = "False"
+        ogs["FilterPasswordProtectedServers"] = "False"
+        ogs["FriendlyFireServersOnly"] = "False"
+        ogs["CampaignModeOnly"] = "False"
+        ogs["DesiredGameMode"] = "-1"
+        ogs["DesiredRealismMode"] = "-1"
+        ogs["DesiredGamePlayType"] = "-1"
+        ogs["DesiredMapGame"] = "-1"
+        ogs["DesiredMaxPing"] = "-1"
+        try:
+            del ogs["XmasMapOnly"]
+        except KeyError:
+            pass
+
+        with open(ROUI_INI_PATH, "w") as f:
+            logger.info("writing config {c}", c=ROUI_INI_PATH.absolute())
+            cg.write(f, space_around_delimiters=False)
+
+        write_launch_status(True)
+
+    except Exception as e:
+        logger.error("error resetting server filters: {e}",
+                     e=e, exc_info=True)
+
+
 def main():
     args = parse_args()
 
@@ -217,6 +302,9 @@ def main():
 
     steam_proto_cmd = f"steam://run/{RS2_APP_ID}"
 
+    if not has_launcher_been_run():
+        reset_server_filters()
+
     resolve_binary_paths()
 
     popen_kwargs = {"shell": True}
@@ -232,12 +320,6 @@ def main():
 
     try:
         run_game(popen_args, **popen_kwargs)
-        for i in range(15):
-            logger.info("waiting for {vg} to start", vg=VNGAME_EXE)
-            if VNGameProcessListener.is_alive():
-                logger.info("{vg} started", vg=VNGAME_EXE)
-                return
-            time.sleep(1)
         return
     except Exception as e:
         logger.error("error launching RS2 via Steam URL protocol: {e}", e=e)
