@@ -7,13 +7,14 @@ directory to avoid conflicts and runs Rising Storm 2.
 """
 import argparse
 import ctypes.wintypes
-import distutils.util
+import errno
 import math
 import os
 import shutil
 import subprocess
 import sys
 import time
+import winreg
 from argparse import Namespace
 from pathlib import Path
 from typing import List
@@ -71,7 +72,7 @@ WW_INT_PATH = ROGAME_PATH / Path("Localization\\INT\\WinterWar.int")
 WW_INI_PATH = ROGAME_PATH / Path("Config\\ROGame_WinterWar.ini")
 ROUI_INI_PATH = ROGAME_PATH / Path("Config\\ROUI.ini")
 SCRIPT_LOG_PATH = LOGS_DIR / Path("LaunchWinterWar.log")
-WW_LAUNCHER_INI_PATH = ROGAME_PATH / Path("Config\\WWLauncher.ini")
+SWS_WW_CONTENT_PATH = Path("steamapps\\workshop\\content\\418460\\") / str(WW_WORKSHOP_ID)
 
 logger = Logger(__name__)
 if LOGS_DIR.exists():
@@ -104,6 +105,46 @@ else:
 
 class VNGameExeNotFoundError(Exception):
     pass
+
+
+def find_ww_workshop_content() -> List[Path]:
+    proc_arch = os.environ["PROCESSOR_ARCHITECTURE"].lower()
+    try:
+        proc_arch64 = os.environ["PROCESSOR_ARCHITEW6432"].lower()
+    except KeyError:
+        proc_arch64 = None
+
+    if proc_arch == "x86" and not proc_arch64:
+        arch_keys = {0}
+    elif proc_arch == "x86" or proc_arch == "amd64":
+        arch_keys = {winreg.KEY_WOW64_32KEY, winreg.KEY_WOW64_64KEY}
+    else:
+        raise Exception(f"Unhandled arch: {proc_arch}")
+
+    steam_keys = [r"SOFTWARE\Valve\Steam", r"SOFTWARE\Wow6432Node\Valve\Steam"]
+    hkey_vals = []
+    for arch_key in arch_keys:
+        for steam_key in steam_keys:
+            try:
+                hkey = winreg.OpenKey(
+                    winreg.HKEY_LOCAL_MACHINE,
+                    steam_key,
+                    0,
+                    winreg.KEY_READ | arch_key)
+            except Exception as e:
+                logger.debug("error opening reg key: {e}", e=e)
+                continue
+
+            try:
+                hkey_vals.append(winreg.QueryValueEx(hkey, "InstallPath")[0])
+            except OSError as e:
+                if e.errno == errno.ENOENT:
+                    pass
+            finally:
+                hkey.Close()
+
+    return list(set([Path(hk) / SWS_WW_CONTENT_PATH
+                     for hk in hkey_vals]))
 
 
 def find_ww_cache_dirs() -> List[Path]:
@@ -164,7 +205,7 @@ def parse_args() -> Namespace:
 
 def resolve_binary_paths():
     """
-    TODO: Refactor (remove) global usage.
+    TODO: Refactor (remove) global usage?
     """
     global VNGAME_EXE_PATH
 
@@ -173,8 +214,9 @@ def resolve_binary_paths():
             VNGAME_EXE_PATH = Path(VNGAME_EXE)
         else:
             raise VNGameExeNotFoundError(
-                f"{VNGAME_EXE} not found, please make sure Winter War mod "
-                f"and Rising Storm 2: Vietnam are installed on the same drive.")
+                f"{VNGAME_EXE} not found. Please make sure Winter War mod "
+                f"and Rising Storm 2: Vietnam are installed on the same hard drive "
+                f"and in the same Steam library folder.")
     logger.info("VNGame.exe found in '{p}'",
                 p=VNGAME_EXE_PATH.absolute())
 
@@ -186,56 +228,13 @@ def run_game(popen_args: list, **popen_kwargs):
     out, err = p.communicate()
     try:
         if out:
+            # noinspection PyUnresolvedReferences
             logger.info("command stdout: {o}", o=out.decode("cp850"))
         if err:
+            # noinspection PyUnresolvedReferences
             logger.error("command stderr: {o}", o=err.decode("cp850"))
     except Exception as e:
         logger.error("error decoding process output: {e}", e=e)
-
-
-def write_launch_status(status: bool):
-    status = str(status)
-    cg = UDKConfigParser()
-    try:
-        with open(WW_LAUNCHER_INI_PATH, "w") as f:
-            cg["Launcher"] = {}
-            cg["Launcher"]["bHasBeenRun"] = status
-            logger.info("writing file: {f}, bHasBeenRun={b}",
-                        f=WW_LAUNCHER_INI_PATH.absolute(), b=status)
-            cg.write(f, space_around_delimiters=False)
-    except Exception as e:
-        logger.error("error writing launch status: {e}",
-                     e=e, exc_info=True)
-
-
-def has_launcher_been_run() -> bool:
-    """
-    Run status is determined from WW_LAUNCHER_INI_PATH config file's
-    'Launcher' section's 'bHasBeenRun' value.
-
-    The function creates WW_LAUNCHER_INI_PATH if it does not exist.
-    """
-    try:
-        if not WW_LAUNCHER_INI_PATH.exists():
-            logger.info("'{f}' does not exist",
-                        f=WW_LAUNCHER_INI_PATH.absolute())
-            write_launch_status(False)
-    except Exception as e:
-        logger.error("error: {e}", e=e, exc_info=True)
-        return False
-
-    try:
-        cg = UDKConfigParser()
-        cg.read(WW_LAUNCHER_INI_PATH)
-        has_been_run = bool(
-            distutils.util.strtobool(cg["Launcher"]["bHasBeenRun"]))
-        logger.info("read '{f}' bHasBeenRun={b}",
-                    f=WW_LAUNCHER_INI_PATH.absolute(), b=has_been_run)
-        return has_been_run
-    except Exception as e:
-        logger.error("error reading {f}: {e}",
-                     f=WW_LAUNCHER_INI_PATH.absolute(), e=e)
-        return False
 
 
 def reset_server_filters():
@@ -265,8 +264,6 @@ def reset_server_filters():
             logger.info("writing config {c}", c=ROUI_INI_PATH.absolute())
             cg.write(f, space_around_delimiters=False)
 
-        write_launch_status(True)
-
     except Exception as e:
         logger.error("error resetting server filters: {e}",
                      e=e, exc_info=True)
@@ -274,6 +271,26 @@ def reset_server_filters():
 
 def main():
     args = parse_args()
+
+    try:
+        ws_dirs = find_ww_workshop_content()
+        print(ws_dirs)
+        for ws_dir in ws_dirs:
+            if ws_dir.exists():
+                logger.info("found old Winter War workshop content: {p}",
+                            p=ws_dir.absolute())
+                if not args.dry_run:
+                    logger.info("removing: {wsd}", wsd=ws_dir.absolute())
+                    shutil.rmtree(
+                        ws_dir,
+                        onerror=error_handler,
+                    )
+                else:
+                    logger.info("dry run, not removing {p}",
+                                p=ws_dir.absolute())
+    except Exception as e:
+        logger.warning("cannot find workshop content from registry: "
+                       "{e}", e=e)
 
     logger.info("user documents directory: '{uh}'", uh=USER_DOCS_DIR)
     cache_dirs = find_ww_cache_dirs()
@@ -302,9 +319,7 @@ def main():
 
     steam_proto_cmd = f"steam://run/{RS2_APP_ID}"
 
-    if not has_launcher_been_run():
-        reset_server_filters()
-
+    reset_server_filters()
     resolve_binary_paths()
 
     popen_kwargs = {"shell": True}
@@ -425,9 +440,9 @@ if __name__ == "__main__":
         logger.info("cwd='{cwd}'", cwd=os.getcwd())
         main()
     except Exception as _e:
-        _extra = (f"Check '{SCRIPT_LOG_PATH}' for more information."
+        _extra = (f"\r\nCheck '{SCRIPT_LOG_PATH}' for more information."
                   if SCRIPT_LOG_PATH.exists() else "")
-        _msg = (f"Error launching Winter War!\r\n"
+        _msg = (f"Error launching Winter War!\r\n\r\n"
                 f"{type(_e).__name__}: {_e}\r\n"
                 f"{_extra}\r\n")
         _gui.warn("Error", _msg)
