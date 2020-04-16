@@ -274,6 +274,8 @@ def main():
 
     try:
         ws_dirs = find_ww_workshop_content()
+        logger.info("old workshop content candidate dirs: {dirs}",
+                    dirs=ws_dirs)
         for ws_dir in ws_dirs:
             if ws_dir.exists():
                 logger.info("found old Winter War workshop content: {p}",
