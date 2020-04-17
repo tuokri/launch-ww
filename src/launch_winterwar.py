@@ -290,7 +290,7 @@ def main():
                     logger.info("dry run, not removing {p}",
                                 p=ws_dir.absolute())
     except Exception as e:
-        logger.warning("cannot find workshop content from registry: "
+        logger.warning("cannot find workshop content: "
                        "{e}", e=e)
 
     logger.info("user documents directory: '{uh}'", uh=USER_DOCS_DIR)
